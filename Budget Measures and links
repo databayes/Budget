@@ -1,0 +1,91 @@
+-----------------------------
+-- Measure: [£ Total Budgets]
+-----------------------------
+MEASURE 'Budgeting'[£ Total Budgets] = SUM( 'Budget'[Sales Budgets] )
+    Description = "Expression:
+SUM('Budget'[Sales Budgets])"
+
+-------------------------------
+-- Measure: [Budget Allocation]
+-------------------------------
+MEASURE 'Budgeting'[Budget Allocation] = 
+    // shows how many days are in the context, 1 day = 1, 30 days = 30
+    VAR DaysInContext = COUNTROWS( 'Date' )
+    // gives the number of rows per year
+    VAR DaysInYear =
+        CALCULATE(
+            COUNTROWS( 'Date' ),
+            ALL( 'Date' ),
+            VALUES( 'Date'[Year] )
+        )
+    // sets up a virtual relationship between the two cities
+    VAR CityLink =
+        TREATAS( VALUES( 'Regions'[City] ), 'Budget'[City] ) -- this would evolve to whichever category in your Fact table matches budget table category
+    // sets up a virtual relationship between the two years
+    VAR YearLink =
+        TREATAS( VALUES( 'Date'[Year] ), 'Budget'[Year] )
+    // uses all vars to create the budget by days in context, with a link to city and year
+    VAR Result =
+        DIVIDE( DaysInContext, DaysInYear, 0 )
+            * CALCULATE( [£ Total Budgets], CityLink, YearLink )
+    RETURN
+        Result
+    Description = "Expression:
+
+// shows how many days are in the context, 1 day = 1, 30 days = 30
+VAR DaysInContext = COUNTROWS('Date')
+// gives the number of rows per year
+VAR DaysInYear = CALCULATE(COUNTROWS('Date'), ALL('Date'), VALUES('Date'[Year]))
+// sets up a virtual relationship between the two cities
+VAR CityLink = TREATAS(VALUES(Regions[City]), Budget[City])
+// sets up a virtual relationship between the two years
+VAR YearLink = TREATAS(VALUES('Date'[Year]), Budget[Year])
+// uses all vars to create the budget by days in context, with a link to city and year
+VAR Result = DIVIDE(DaysInContext, DaysInYear, 0) * CALCULATE([£ Total Budgets], CityLink, YearLink)
+RETURN
+Result"
+    FormatString = """£""#,0;-""£""#,0;""£""#,0"
+
+-------------------------------
+-- Measure: [Cumulative Budget]
+-------------------------------
+MEASURE 'Budgeting'[Cumulative Budget] = 
+    CALCULATE(
+        [Budget Allocation],
+        FILTER(
+            ALLSELECTED( 'Date' ),
+            'Date'[Date] <= MAX( 'Date'[Date] )
+        )
+    )
+    Description = "Expression:
+
+CALCULATE( [Budget Allocation],
+FILTER(
+    ALLSELECTED('Date'),
+        'Date'[Date] <= MAX('Date'[Date])))"
+
+-----------------------------
+-- Measure: [Revenue Budgets]
+-----------------------------
+MEASURE 'Budgeting'[Revenue Budgets] = 
+    VAR CityLink =
+        TREATAS( VALUES( 'Regions'[City] ), 'Budget'[City] )
+    VAR YearLink =
+        TREATAS( VALUES( 'Date'[Year] ), 'Budget'[Year] )
+    // this creates a virtual relationship between regions and budget and budget and year
+    // note use of values to create distinct list hence avoiding many to many
+    VAR Result = CALCULATE( [£ Total Budgets], CityLink, YearLink )
+    RETURN
+        Result
+    Description = "Expression:
+
+VAR CityLink = TREATAS(VALUES(Regions[City]), Budget[City] )
+VAR YearLink = TREATAS(VALUES('Date'[Year]), 'Budget'[Year])
+// this creates a virtual relationship between regions and budget and budget and year
+// note use of values to create distinct list hence avoiding many to many
+VAR Result = CALCULATE([£ Total Budgets],
+    CityLink,
+        YearLink
+ )
+ RETURN Result"
+    FormatString = """£""#,0;-""£""#,0;""£""#,0"
